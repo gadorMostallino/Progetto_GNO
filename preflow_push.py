@@ -2,8 +2,102 @@
 import networkx as nx
 import math
 
+from collections import deque
 
-def generic_preflow_push(R,s,t,max_iterations = 100000):
+def generic_preflow_push(G,s,t,max_iterations = 10000000):
+    """
+    Calcola il flusso massimo in un grafo G dalla sorgente s al pozzo t
+    usando una versione ottimizzata dell'algoritmo Preflow-Push.
+    
+    Args:
+        G (nx.DiGraph): Il grafo di input con attributo 'capacity' sugli archi.
+        s: Il nodo sorgente.
+        t: Il nodo pozzo.
+
+    Returns:
+        tuple: Una tupla contenente il valore del flusso massimo e un dizionario
+               che rappresenta il flusso su ogni arco.
+    """
+    
+    # Inizializza i dizionari per eccesso (e) e altezza (d)
+    e = {node: 0 for node in G.nodes()}
+    d = {node: 0 for node in G.nodes()}
+    
+    # Crea un grafo residuo con capacità iniziali
+    R = nx.DiGraph()
+    for u, v, data in G.edges(data=True):
+        R.add_edge(u, v, capacity=data['capacity'], residual=data['capacity'])
+        R.add_edge(v, u, capacity=0, residual=0)
+
+    # Usa una BFS inversa per calcolare le altezze iniziali da t
+    queue = deque([t])
+    visited = {t}
+    d[t] = 0
+    while queue:
+        u = queue.popleft()
+        for v in R.predecessors(u):
+            if v not in visited:
+                d[v] = d[u] + 1
+                visited.add(v)
+                queue.append(v)
+    
+    # L'altezza della sorgente (s) viene impostata a N per convenzione
+    d[s] = len(G.nodes)
+
+    # Spinge il flusso iniziale dalla sorgente
+    for v in G.neighbors(s):
+        delta = R.edges[s, v]['capacity']
+        R.edges[s, v]['residual'] -= delta
+        R.edges[v, s]['residual'] += delta
+        e[v] += delta
+        e[s] -= delta
+
+    # Usa una deque per gestire i nodi attivi in modo efficiente (FIFO)
+    active_nodes_queue = deque([u for u in G.nodes() if e[u] > 0 and u != s and u != t])
+    
+    while active_nodes_queue:
+        u = active_nodes_queue.popleft()
+        
+        while e[u] > 0:
+            pushed = False
+            for v in R.neighbors(u):
+                if d[u] == d[v] + 1 and R.edges[u, v]['residual'] > 0:
+                    delta = min(e[u], R.edges[u, v]['residual'])
+                    
+                    R.edges[u, v]['residual'] -= delta
+                    R.edges[v, u]['residual'] += delta
+                    e[u] -= delta
+                    e[v] += delta
+                    pushed = True
+                    
+                    if e[v] > 0 and v != s and v != t and v not in active_nodes_queue:
+                        active_nodes_queue.append(v)
+                    
+                    if e[u] == 0:
+                        break
+            
+            if not pushed:
+                min_height = float('inf')
+                for v in R.neighbors(u):
+                    if R.edges[u, v]['residual'] > 0:
+                        min_height = min(min_height, d[v])
+                d[u] = min_height + 1
+                
+                if e[u] > 0 and u != s and u != t:
+                     active_nodes_queue.append(u)
+
+    # Calcola il flusso finale e il flusso massimo
+    flow = {}
+    for u, v, data in G.edges(data=True):
+        # Il flusso su un arco (u, v) è la capacità iniziale meno la capacità residua
+        flow[(u, v)] = data['capacity'] - R.edges[u, v]['residual']
+
+    max_flow = sum(flow[(s, v)] for v in G.neighbors(s))
+    
+    return max_flow, flow
+
+
+def generic_preflow_pushh(R,s,t,max_iterations = 10000000):
     def preproc():
         #calcolo le distanze esatte da ogni nodo a t come il numero minimo di archi tra i e t
         for u in R:
@@ -31,9 +125,10 @@ def generic_preflow_push(R,s,t,max_iterations = 100000):
         if e[v] > 0 and v != t and v != s:
             if v not in active_nodes:
                 active_nodes.append(v)
-        if e[u] > 0 and u != t and u != s:
-            if v not in active_nodes:
-                active_nodes.append(v)
+        if e[u] == 0:
+            return
+        if e[u] < 0:
+            active_nodes.append(u)
 
 
     def relabel(u):
@@ -90,7 +185,7 @@ def generic_preflow_push(R,s,t,max_iterations = 100000):
         max_flow = sum([flow[(s,v)] for v in R[s]])
         return max_flow,flow
     
-def highest_lable_preflow_push(R,s,t,max_iterations = 100000):
+def highest_lable_preflow_push(R,s,t,max_iterations = 10000000):
     def preproc():
         #calcolo le distanze esatte da ogni nodo a t come il numero minimo di archi tra i e t
         for u in R:
@@ -118,9 +213,10 @@ def highest_lable_preflow_push(R,s,t,max_iterations = 100000):
         if e[v] > 0 and v != t and v != s:
             if v not in active_nodes:
                 active_nodes.append(v)
-        if e[u] > 0 and u != t and u != s:
-            if u not in active_nodes:
-                active_nodes.append(v)
+        if e[u] == 0:
+            return
+        if e[u] < 0 :
+            active_nodes.append(u)
 
 
     def relabel(u):
@@ -177,7 +273,7 @@ def highest_lable_preflow_push(R,s,t,max_iterations = 100000):
         return max_flow,flow
     
 
-def excess_scaling_preflow_push(R, s, t, max_iterations=100000):
+def excess_scaling_preflow_push(R, s, t, max_iterations=10000000):
     def preproc():
         #calcolo le distanze esatte da ogni nodo a t come il numero minimo di archi tra i e t
         for u in R:

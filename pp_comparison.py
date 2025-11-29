@@ -3,20 +3,27 @@ import pp as pp
 import time
 import tqdm as tqdm
 import networkx as nx
+import os
 
 n = [10,100, 1000, 10000,100000]
 max_u = [10,100]
 p_edge = [0.1,0.2,0.3,0.4] #con p_edge = 0.1 il grafo sarà molto sparso, con 0.4 molto denso
 n_test = 50
 
-results_csv_path = ".//"
+results_csv_path = "risultati"
 
 if __name__ == '__main__':
-    #save results in a csv file with timestamp in format: results_YYYY-MM-DD_HH-MM-SS.csv
+
+    #crea la cartella se non esiste
+    os.makedirs(results_csv_path, exist_ok=True)
+    #salva i risultati in un file csv con timestamp in formato: results_YYYY-MM-DD_HH-MM-SS.csv
     results_csv_name = "results_" + time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv"
+    full_csv_path = os.path.join(results_csv_path, results_csv_name)
     csv = results_csv_path + results_csv_name
-    with open(results_csv_name, 'w') as f:
-        f.write("n_nodes;max_capacity;p;time_fpp;time_hlpp;time_elpp\n")
+
+    with open(full_csv_path, 'w') as f:
+        f.write("n_nodes;max_capacity;p;time_fpp;time_hlpp;time_elpp;max_flow_fpp;max_flow_hlpp;max_flow_elpp\n")
+
     with tqdm.tqdm(total=len(n)*len(max_u)*len(p_edge),position=1) as pbar:
         for n_nodes in n:
             for max_capacity in max_u:
@@ -95,8 +102,9 @@ if __name__ == '__main__':
                     time_avg_fpp = time_avg_fpp/n_test
                     time_avg_hlpp = time_avg_hlpp/n_test
                     time_avg_elpp = time_avg_elpp/n_test
+                
 
-                    with open(results_csv_name, 'a') as f:
-                        f.write(f"{n_nodes};{max_capacity};{p};{time_avg_fpp};{time_avg_hlpp};{time_avg_elpp}\n")
+                    with open(full_csv_path, 'a') as f:
+                        f.write(f"{n_nodes};{max_capacity};{p};{time_avg_fpp};{time_avg_hlpp};{time_avg_elpp};{mf_fpp};{mf_hlpp};{mf_elpp}\n")
                     pbar.update(1)
     print("DONE")
